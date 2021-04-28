@@ -559,6 +559,13 @@ constexpr const char* FastStringKey::c_str() const {
   return name_;
 }
 
+inline uint32_t ReadUint32BE(const unsigned char* p) {
+  return static_cast<uint32_t>(p[0] << 24U) |
+         static_cast<uint32_t>(p[1] << 16U) |
+         static_cast<uint32_t>(p[2] << 8U) |
+         static_cast<uint32_t>(p[3]);
+}
+
 }  // namespace node
 
 #endif  // defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS

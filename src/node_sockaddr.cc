@@ -1,6 +1,5 @@
 #include "node_sockaddr-inl.h"  // NOLINT(build/include)
 #include "env-inl.h"
-#include "base64-inl.h"
 #include "base_object-inl.h"
 #include "memory_tracker-inl.h"
 #include "node_errors.h"

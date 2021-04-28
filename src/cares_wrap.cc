@@ -21,7 +21,6 @@
 
 #include "async_wrap-inl.h"
 #include "base_object-inl.h"
-#include "base64-inl.h"
 #include "cares_wrap.h"
 #include "env-inl.h"
 #include "memory_tracker-inl.h"

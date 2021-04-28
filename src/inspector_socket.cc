@@ -9,7 +9,7 @@
 #include <cstring>
 #include <map>
 
-#define ACCEPT_KEY_LENGTH base64_encoded_size(20)
+#define ACCEPT_KEY_LENGTH (modp_b64_encode_len(20))
 
 #define DUMP_READS 0
 #define DUMP_WRITES 0
@@ -449,7 +449,7 @@ class HttpHandler : public ProtocolHandler {
     std::vector<char> reply(accept_ws_prefix,
                             accept_ws_prefix + sizeof(accept_ws_prefix) - 1);
     reply.insert(reply.end(), accept_string,
-                 accept_string + sizeof(accept_string));
+                 accept_string + sizeof(accept_string) - 1);
     reply.insert(reply.end(), accept_ws_suffix,
                  accept_ws_suffix + sizeof(accept_ws_suffix) - 1);
     if (WriteRaw(reply, WriteRequest::Cleanup) >= 0) {

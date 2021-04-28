@@ -21,11 +21,11 @@
 
 #include "string_bytes.h"
 
-#include "base64-inl.h"
 #include "env-inl.h"
 #include "node_buffer.h"
 #include "node_errors.h"
 #include "util.h"
+#include "base64-inl.h"
 
 #include <climits>
 #include <cstring>  // memcpy
@@ -361,6 +361,7 @@ size_t StringBytes::Write(Isolate* isolate,
     case BASE64URL:
       // Fall through
     case BASE64:
+      printf("IsExternalOneByte: %d\n", str->IsExternalOneByte());
       if (str->IsExternalOneByte()) {
         auto ext = str->GetExternalOneByteStringResource();
         nbytes = base64_decode(buf, buflen, ext->data(), ext->length());
@@ -368,6 +369,7 @@ size_t StringBytes::Write(Isolate* isolate,
         String::Value value(isolate, str);
         nbytes = base64_decode(buf, buflen, *value, value.length());
       }
+      printf("nbytes: %d\n", nbytes);
       *chars_written = nbytes;
       break;
 
@@ -430,7 +432,7 @@ Maybe<size_t> StringBytes::StorageSize(Isolate* isolate,
     case BASE64URL:
       // Fall through
     case BASE64:
-      data_size = base64_decoded_size_fast(str->Length());
+      data_size = modp_b64_decode_len(str->Length());
       break;
 
     case HEX:
@@ -474,7 +476,7 @@ Maybe<size_t> StringBytes::Size(Isolate* isolate,
       // Fall through
     case BASE64: {
       String::Value value(isolate, str);
-      return Just(base64_decoded_size(*value, value.length()));
+      return Just(static_cast<size_t>(modp_b64_decode_len(value.length())));
     }
 
     case HEX:
@@ -684,7 +686,7 @@ MaybeLocal<Value> StringBytes::Encode(Isolate* isolate,
       return ExternOneByteString::NewFromCopy(isolate, buf, buflen, error);
 
     case BASE64: {
-      size_t dlen = base64_encoded_size(buflen);
+      size_t dlen = modp_b64_encode_len(buflen);
       char* dst = node::UncheckedMalloc(dlen);
       if (dst == nullptr) {
         *error = node::ERR_MEMORY_ALLOCATION_FAILED(isolate);
@@ -692,23 +694,23 @@ MaybeLocal<Value> StringBytes::Encode(Isolate* isolate,
       }
 
       size_t written = base64_encode(buf, buflen, dst, dlen);
-      CHECK_EQ(written, dlen);
+      CHECK_EQ(written, dlen - 1);
 
-      return ExternOneByteString::New(isolate, dst, dlen, error);
+      return ExternOneByteString::New(isolate, dst, written, error);
     }
 
     case BASE64URL: {
-      size_t dlen = base64_encoded_size(buflen, Base64Mode::URL);
+      size_t dlen = modp_b64_encode_len_without_pad(buflen);
       char* dst = node::UncheckedMalloc(dlen);
       if (dst == nullptr) {
         *error = node::ERR_MEMORY_ALLOCATION_FAILED(isolate);
         return MaybeLocal<Value>();
       }
 
-      size_t written = base64_encode(buf, buflen, dst, dlen, Base64Mode::URL);
-      CHECK_EQ(written, dlen);
+      size_t written = base64_encode(buf, buflen, dst, dlen, Base64Mode::kURL);
+      CHECK_EQ(written, dlen - 1);
 
-      return ExternOneByteString::New(isolate, dst, dlen, error);
+      return ExternOneByteString::New(isolate, dst, written, error);
     }
 
     case HEX: {
