@@ -10,44 +10,31 @@
 #include <cstdint>
 
 namespace node {
-enum class Base64Mode { kNormal, kURL };
+
+enum class Base64Mode {
+  kNormal,
+  kUrl,
+};
 
 /**
- * Code with prefix `modp_b64` is extracted from Chromium's modp_b64 and do some
- * modifing to adapt Node.js' source code.
- *
- * MODP_B64 - High performance base64 encoder/decoder
+ * These two functions are inspired from modp_b64
+ * Refs:
+ * https://github.com/chromium/chromium/blob/92.0.4491.1/third_party/modp_b64
  */
-inline size_t modp_b64_encode(char* dest,
-                              const char* str,
-                              size_t len,
-                              const char e0[],
-                              const char e1[],
-                              const char e2[],
-                              bool do_pad);
-template <typename TypeName>
-inline size_t modp_b64_decode(char* dest, const TypeName* src, size_t len, bool strict = false);
+inline size_t b64_encode(char* dest,
+                         const char* str,
+                         size_t len,
+                         Base64Mode mode = Base64Mode::kNormal);
+inline size_t b64_decode(char* dest,
+                         const char* src,
+                         size_t len,
+                         bool strict = false);
 
-#define modp_b64_encode_len(A) ((A + 2) / 3 * 4 + 1)
-#define modp_b64_encode_strlen(A) ((A + 2) / 3 * 4)
-#define modp_b64_encode_len_without_pad(A)                                     \
-  (modp_b64_encode_strlen_without_pad(A) + 1)
-#define modp_b64_encode_strlen_without_pad(A)                                  \
-  (size_t)(std::ceil((double)(A * 4) / 3))
-#define modp_b64_decode_len(A) (A > 1 ? (A / 4 * 3 + 2) : 0)
-#define MODP_B64_ERROR ((size_t)-1)
+#define b64_encode_len(A) ((A + 2) / 3 * 4 + 1)
+#define b64_decode_len(A) (A / 4 * 3 + 2)
+#define b64_encode_strlen(A) ((A + 2) / 3 * 4)
+#define B64_ERROR ((size_t)-1)
 
-template <typename TypeName>
-size_t base64_decode(char* const dst,
-                     const size_t dstlen,
-                     const TypeName* const src,
-                     const size_t srclen);
-
-inline size_t base64_encode(const char* src,
-                            size_t slen,
-                            char* dst,
-                            size_t dlen,
-                            Base64Mode mode = Base64Mode::kNormal);
 }  // namespace node
 
 #endif  // defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
