@@ -9,7 +9,7 @@
 #include <cstring>
 #include <map>
 
-#define ACCEPT_KEY_LENGTH (modp_b64_encode_len(20))
+#define ACCEPT_KEY_LENGTH (b64_encode_len(20))
 
 #define DUMP_READS 0
 #define DUMP_WRITES 0
@@ -148,7 +148,7 @@ static void generate_accept_string(const std::string& client_key,
   char hash[SHA_DIGEST_LENGTH];
   SHA1(reinterpret_cast<const unsigned char*>(&input[0]), input.size(),
        reinterpret_cast<unsigned char*>(hash));
-  node::base64_encode(hash, sizeof(hash), *buffer, sizeof(*buffer));
+  node::b64_encode(*buffer, hash, sizeof(hash));
 }
 
 static std::string TrimPort(const std::string& host) {

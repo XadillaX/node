@@ -350,7 +350,6 @@ const base64flavors = ['base64', 'base64url'];
   );
 
   base64flavors.forEach((encoding) => {
-    console.log(encoding, '<<<');
     let b = Buffer.allocUnsafe(1024);
     let bytesWritten = b.write(expected, 0, encoding);
     assert.strictEqual(quote.length, bytesWritten);
@@ -364,7 +363,6 @@ const base64flavors = ['base64', 'base64url'];
                           `${expected.slice(240, 300)}\n` +
                           `${expected.slice(300, 360)}\n`;
     b = Buffer.allocUnsafe(1024);
-    console.log(expectedWhite, '>>>');
     bytesWritten = b.write(expectedWhite, 0, encoding);
     assert.strictEqual(quote.length, bytesWritten);
     assert.strictEqual(quote, b.toString('ascii', 0, quote.length));

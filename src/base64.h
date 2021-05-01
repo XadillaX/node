@@ -26,6 +26,7 @@ inline size_t b64_encode(char* dest,
                          size_t len,
                          Base64Mode mode = Base64Mode::kNormal);
 inline size_t b64_decode(char* dest,
+                         size_t destlen,
                          const char* src,
                          size_t len,
                          bool strict = false);

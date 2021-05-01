@@ -52,6 +52,7 @@ inline size_t b64_encode(char* dest,
     }
   }
 
+  uint8_t* last_p = p;
   switch (len - i) {
     case 0:
       break;
@@ -59,6 +60,7 @@ inline size_t b64_encode(char* dest,
       t1 = str[i];
       *p++ = e0[t1];
       *p++ = e1[(t1 & 0x03) << 4];
+      last_p = p;
       *p++ = pad;
       *p++ = pad;
       break;
@@ -68,11 +70,13 @@ inline size_t b64_encode(char* dest,
       *p++ = e0[t1];
       *p++ = e1[((t1 & 0x03) << 4) | ((t2 >> 4) & 0x0F)];
       *p++ = e2[(t2 & 0x0F) << 2];
+      last_p = p;
       *p++ = pad;
   }
 
   *p = '\0';
-  return p - (uint8_t*)dest;
+  if (pad != 0) last_p = p;
+  return last_p - (uint8_t*)dest;
 }
 
 inline size_t b64_decode_with_invalid(const uint8_t** y,
@@ -81,31 +85,34 @@ inline size_t b64_decode_with_invalid(const uint8_t** y,
                                       bool* stopped,
                                       int* leftover) {
   *stopped = false;
-  uint8_t group[] = {0, 0, 0, 0};
+  const uint32_t* group[] = {d0, d1, d2, d3};
+
   *avail = 0;
   uint8_t temp;
-  for (int i = 0; i < 4 && *y < end && !stopped; i++) {
+  size_t x = 0;
+  for (int i = 0; i < 4 && *y < end && !*stopped; i++) {
     for (; *y < end; (*y)++) {
       temp = unbase64(**y);
-      if (temp < 64) {
-        (*leftover)--;
-        if (*leftover < 0) *leftover = 3;
-        continue;
-      } else if (**y == '=') {
+      if (**y == '=') {
         *stopped = true;
         break;
+      } else if (temp >= 64) {
+        continue;
       }
 
-      group[i] = **y;
+      (*leftover)--;
+      if (*leftover < 0) *leftover = 3;
+      x |= (group[i])[**y];
       (*y)++;
       *avail = i + 1;
       break;
     }
+
+    if (*stopped) break;
   }
 
   if (*y >= end) *stopped = true;
-
-  return d0[group[0]] | d1[group[1]] | d2[group[2]] | d3[group[3]];
+  return x;
 }
 
 #define CHECK_BADCHAR(x, expr)                                                 \
@@ -113,33 +120,41 @@ inline size_t b64_decode_with_invalid(const uint8_t** y,
     if (strict) return B64_ERROR;                                              \
                                                                                \
     x = b64_decode_with_invalid(&y, end, &avail, &stopped, &leftover);         \
+    y -= 4;                                                                    \
     switch (avail) {                                                           \
       case 4:                                                                  \
         *p++ = ((uint8_t*)(&x))[0];                                            \
+        if (p >= dest_end) return p - (uint8_t*)dest;                          \
         *p++ = ((uint8_t*)(&x))[1];                                            \
+        if (p >= dest_end) return p - (uint8_t*)dest;                          \
         *p++ = ((uint8_t*)(&x))[2];                                            \
+        if (p >= dest_end) return p - (uint8_t*)dest;                          \
         break;                                                                 \
       case 3:                                                                  \
         *p++ = ((uint8_t*)(&x))[0];                                            \
+        if (p >= dest_end) return p - (uint8_t*)dest;                          \
         *p++ = ((uint8_t*)(&x))[1];                                            \
+        if (p >= dest_end) return p - (uint8_t*)dest;                          \
         break;                                                                 \
       case 2:                                                                  \
       case 1:                                                                  \
         *p++ = *((uint8_t*)(&x));                                              \
+        if (p >= dest_end) return p - (uint8_t*)dest;                          \
         break;                                                                 \
     }                                                                          \
                                                                                \
     if (avail < 4 || stopped) {                                                \
-      return (i * 3) + avail <= 1 ? avail : (avail - 1);                       \
+      return p - (uint8_t*)dest;                                               \
     }                                                                          \
                                                                                \
     expr;                                                                      \
   }
 
-inline size_t b64_decode(char* dest, const char* src, size_t len, bool strict) {
+inline size_t b64_decode(
+    char* dest, size_t destlen, const char* src, size_t len, bool strict) {
   if (len == 0) return 0;
 
-  if (src[len - 1] == CHARPAD && (len < 4 || (len % 4 != 0)))
+  if (strict && src[len - 1] == CHARPAD && (len < 4 || (len % 4 != 0)))
     return B64_ERROR; /* error */
 
   /* there can be at most 2 pad chars at the end */
@@ -154,6 +169,7 @@ inline size_t b64_decode(char* dest, const char* src, size_t len, bool strict) {
   int leftover = len % 4;
   size_t chunks = (leftover == 0) ? len / 4 - 1 : len / 4;
 
+  uint8_t* dest_end = (uint8_t*)dest + destlen;
   uint8_t* p = (uint8_t*)dest;
   uint32_t x = 0;
   const uint8_t* y = (uint8_t*)src;
@@ -164,10 +180,14 @@ inline size_t b64_decode(char* dest, const char* src, size_t len, bool strict) {
     x = d0[y[0]] | d1[y[1]] | d2[y[2]] | d3[y[3]];
     CHECK_BADCHAR(x, continue);
     *p++ = ((uint8_t*)(&x))[0];
+    if (p >= dest_end) return p - (uint8_t*)dest;
     *p++ = ((uint8_t*)(&x))[1];
+    if (p >= dest_end) return p - (uint8_t*)dest;
     *p++ = ((uint8_t*)(&x))[2];
+    if (p >= dest_end) return p - (uint8_t*)dest;
   }
 
+  *p = 0;
   chunks = i;
   switch (leftover) {
     case 0:
@@ -175,19 +195,11 @@ inline size_t b64_decode(char* dest, const char* src, size_t len, bool strict) {
       CHECK_BADCHAR(x, break);
 
       *p++ = ((uint8_t*)(&x))[0];
-      *p++ = ((uint8_t*)(&x))[1];
-      *p = ((uint8_t*)(&x))[2];
-      return (chunks + 1) * 3;
-      break;
-  }
+      if (p >= dest_end) return p - (uint8_t*)dest;
 
-  switch (leftover) {
-    case 0:
-      x = d0[y[0]] | d1[y[1]] | d2[y[2]] | d3[y[3]];
-      CHECK_BADCHAR(x, break);
-
-      *p++ = ((uint8_t*)(&x))[0];
       *p++ = ((uint8_t*)(&x))[1];
+      if (p >= dest_end) return p - (uint8_t*)dest;
+
       *p = ((uint8_t*)(&x))[2];
       return (chunks + 1) * 3;
       break;
@@ -209,13 +221,14 @@ inline size_t b64_decode(char* dest, const char* src, size_t len, bool strict) {
       x = d0[y[0]] | d1[y[1]] | d2[y[2]]; /* 0x3c */
       CHECK_BADCHAR(x, break);
       *p++ = ((uint8_t*)(&x))[0];
+      if (p >= dest_end) return p - (uint8_t*)dest;
       *p = ((uint8_t*)(&x))[1];
       break;
   }
 
   if (x >= BADCHAR) return B64_ERROR;
 
-  return 3 * chunks + (6 * leftover) / 8;
+  return p - (uint8_t*)dest + 1;
 }
 
 }  // namespace node
